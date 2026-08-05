@@ -17,6 +17,10 @@ dist-ssr
 build
 *.local
 
+# Arquivos python
+.venv
+__pycache__
+
 # Pastas e arquivos do editor de texto
 .vscode/*
 !.vscode/extensions.json

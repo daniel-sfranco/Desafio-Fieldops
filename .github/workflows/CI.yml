@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Baixar o código
-    - uses: actions/checkout@v4
+        uses: actions/checkout@v4
     
     - name: Configurar Node 20
       uses: actions/setup-node@v4
@@ -30,11 +30,11 @@ jobs:
         node-version: 20
         cache: 'npm'
 
-    - name: Instalar dependências
-      run: npm ci
+      - name: Instalar dependências
+        run: npm ci
 
-    - name: Validar tipos e compilar bundle de produção (React/Vite)
-      run: npm run build
+      - name: Validar tipos e compilar bundle de produção (React/Vite)
+        run: npm run build
   
   backend:
     name: Backend + Testes - Python + FastAPI
@@ -63,7 +63,7 @@ jobs:
       
     steps:
     - name: Baixar o código do repositório
-    - uses: actions/checkout@v4
+      uses: actions/checkout@v4
     
     - name: Set up Python 3.11
       uses: actions/setup-python@v5

@@ -2,8 +2,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from routes import auth
-from database import engine, base
-from exceptions import register_exception_handlers
+from utils.database import engine, base
+from utils.exceptions import register_exception_handlers
 import models
 
 

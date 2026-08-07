@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import String, Enum as SQLEnum, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import base
+from utils.database import base
 from .enums.Status import Status
 from .enums.Priority import Priority
 

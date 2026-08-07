@@ -2,7 +2,7 @@ from typing import Optional
 from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from database import base
+from utils.database import base
 
 
 class Checklist(base):

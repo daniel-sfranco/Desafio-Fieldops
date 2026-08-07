@@ -3,9 +3,6 @@ from typing import List, Optional
 from sqlalchemy import String, Enum as SQLEnum, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from models import Auditoria
-from models.Checklist import Checklist
-from models.Usuario import Usuario
 from utils.database import base
 from .enums.Status import Status
 from .enums.Priority import Priority
@@ -26,6 +23,6 @@ class OS(base):
     createdAt: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updatedAt: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    assignee: Mapped[Optional["Usuario"]] = relationship("Usuario", back_populates="osList")
-    checkList: Mapped[List["Checklist"]] = relationship("Checklist", back_populates="workOrder", cascade="all, delete-orphan")
-    auditList: Mapped[List["Auditoria"]] = relationship("Auditoria", back_populates="workOrder", cascade="all, delete-orphan")
+    assignee: Mapped[Optional["Usuario"]] = relationship("Usuario", back_populates="osList") # pyright: ignore[reportUndefinedVariable]
+    checkList: Mapped[List["Checklist"]] = relationship("Checklist", back_populates="workOrder", cascade="all, delete-orphan")# pyright: ignore[reportUndefinedVariable]
+    auditList: Mapped[List["Auditoria"]] = relationship("Auditoria", back_populates="workOrder", cascade="all, delete-orphan")# pyright: ignore[reportUndefinedVariable]

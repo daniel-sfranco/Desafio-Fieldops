@@ -14,4 +14,4 @@ class Checklist(base):
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    workOrder: Mapped["OS"] = relationship("OS", back_populates="checkList")
+    workOrder: Mapped["OS"] = relationship("OS", back_populates="checkList")# pyright: ignore[reportUndefinedVariable]

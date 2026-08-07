@@ -2,8 +2,6 @@ from typing import List, Optional
 from sqlalchemy import String, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from models.Auditoria import Auditoria
-from models.OS import OS
 from utils.database import base
 from .enums.UsuarioRole import UsuarioRole
 
@@ -18,8 +16,8 @@ class Usuario(base):
     teamId: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     role: Mapped[UsuarioRole] = mapped_column(SQLEnum(UsuarioRole), nullable=False)
 
-    osList: Mapped[List["OS"]] = relationship("OS", back_populates="assignee")
-    auditList: Mapped[List["Auditoria"]] = relationship("Auditoria", back_populates="actor")
+    osList: Mapped[List["OS"]] = relationship("OS", back_populates="assignee")# pyright: ignore[reportUndefinedVariable]
+    auditList: Mapped[List["Auditoria"]] = relationship("Auditoria", back_populates="actor")# pyright: ignore[reportUndefinedVariable]
 
     def __init__(self, email, password, name, teamId, role):
         self.email = email

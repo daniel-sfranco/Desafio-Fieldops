@@ -8,9 +8,7 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str
+class RegisterRequest(LoginRequest):
     name: str
     teamId: Optional[str] = None
     role: UsuarioRole = UsuarioRole.TECHNICIAN

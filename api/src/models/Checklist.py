@@ -2,6 +2,7 @@ from typing import Optional
 from sqlalchemy import String, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from models.OS import OS
 from utils.database import base
 
 

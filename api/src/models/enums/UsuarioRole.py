@@ -1,6 +1,6 @@
-import enum
+from enum import Enum
 
-class UsuarioRole(enum.Enum):
-    TECHNICIAN = 'technician'
-    SUPERVISOR = 'supervisor'
-    ADMIN = 'admin'
+class UsuarioRole(str, Enum):
+    TECHNICIAN = "technician"
+    SUPERVISOR = "supervisor"
+    ADMIN = "admin"

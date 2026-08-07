@@ -1,6 +1,6 @@
-import enum
+from enum import Enum
 
-class Status(enum.Enum):
-    OPEN = 'open'
-    IN_PROGRESS = 'in progress'
-    DONE = 'done'
+class Status(str, Enum):
+    OPEN = "open"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"

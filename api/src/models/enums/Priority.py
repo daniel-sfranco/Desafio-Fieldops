@@ -1,5 +1,5 @@
-import enum
+from enum import Enum
 
-class Priority(enum.Enum):
-    HIGH = 'high'
-    LOW = 'low'
+class Priority(str, Enum):
+    HIGH = "high"
+    LOW = "low"

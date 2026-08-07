@@ -4,6 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.OS import OS
 from utils.database import base
+from models.OS import OS
 
 
 class Checklist(base):

@@ -5,7 +5,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from utils.database import base
 from .enums.Status import Status
-
+from models.OS import OS
+from models.Usuario import Usuario
 
 class Auditoria(base):
     __tablename__ = "flx_work_order_events"

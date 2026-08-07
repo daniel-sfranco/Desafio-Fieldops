@@ -4,6 +4,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from utils.database import base
 from .enums.UsuarioRole import UsuarioRole
+from models.Auditoria import Auditoria
+from models.OS import OS
 
 
 class Usuario(base):

@@ -6,6 +6,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from utils.database import base
 from .enums.Status import Status
 from .enums.Priority import Priority
+from models.Usuario import Usuario
+from models.Checklist import Checklist
+from models.Auditoria import Auditoria
 
 
 class OS(base):

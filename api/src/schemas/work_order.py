@@ -29,11 +29,17 @@ class WorkOrderUpdate(BaseModel):
     def validate_status_rules(self) -> "WorkOrderUpdate":
         if self.status is not None:
             if self.version is None:
-                raise ValueError("O campo 'version' é obrigatório ao alterar o status da Ordem de Serviço.")
-            
+                raise ValueError(
+                    "O campo 'version' é obrigatório ao alterar o status."
+                )
+
             if self.status == Status.DONE:
-                if not self.resolutionNotes or len(self.resolutionNotes.strip()) < 10:
-                    raise ValueError("O campo 'resolutionNotes' deve conter no mínimo 10 caracteres para concluir a OS.")
+                notes = self.resolutionNotes
+                if not notes or len(notes.strip()) < 10:
+                    raise ValueError(
+                        "O campo 'resolutionNotes' deve conter no mínimo 10 "
+                        "caracteres para concluir a OS."
+                    )
         return self
 
 
@@ -49,7 +55,9 @@ class WorkOrderResponse(BaseModel):
     version: int
     createdAt: datetime
     updatedAt: datetime
-    checklist: List[ChecklistItemResponse] = Field(default_factory=list, alias="checkList")
+    checklist: List[ChecklistItemResponse] = Field(
+        default_factory=list, alias="checkList"
+    )
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 

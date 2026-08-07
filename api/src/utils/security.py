@@ -4,7 +4,9 @@ from typing import Optional, Any, Dict
 import bcrypt
 import jwt
 
-SECRET_KEY = os.getenv("JWT_SECRET", "supersecretkeyfieldops2026secretkey32bytes")
+SECRET_KEY = os.getenv(
+    "JWT_SECRET", "supersecretkeyfieldops2026secretkey32bytes"
+)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas (1 dia)
 
@@ -28,18 +30,22 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(pwd_bytes, hash_bytes)
 
 
-def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: Dict[str, Any], expires_delta: Optional[timedelta] = None
+) -> str:
     """
     Gera um token JWT assinado contendo as claims fornecidas.
-    Claims recomendadas pelo desafio: sub (user_id como string), role, teamId.
+    Claims recomendadas: sub (user_id como string), role, teamId.
     """
     to_encode = data.copy()
     if "sub" in to_encode and not isinstance(to_encode["sub"], str):
         to_encode["sub"] = str(to_encode["sub"])
-        
-    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+    expire = datetime.now(timezone.utc) + (
+        expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
     to_encode.update({"exp": expire})
-    
+
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
@@ -47,7 +53,7 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
 def decode_access_token(token: str) -> Dict[str, Any]:
     """
     Decodifica e valida o token JWT usando a chave secreta.
-    Lança exceções do PyJWT (PyJWTError, ExpiredSignatureError) se o token for inválido.
+    Lança exceções do PyJWT se o token for inválido.
     """
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return payload

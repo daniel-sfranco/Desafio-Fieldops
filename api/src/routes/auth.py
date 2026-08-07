@@ -5,8 +5,7 @@ from sqlalchemy import select
 from models.enums.UsuarioRole import UsuarioRole
 from utils import security
 from utils.database import get_db
-from schemas.user import UsuarioCreate
-from schemas.auth import RegisterRequest, LoginRequest, JWTPayload, TokenResponse
+from schemas.auth import RegisterRequest, LoginRequest, TokenResponse
 from models.Usuario import Usuario
 from utils.exceptions import FlxException
 
@@ -15,10 +14,14 @@ router = APIRouter(
     tags=["Auth Module"]
 )
 
+
 def validate_existing_email(user, db, wanted):
     email_query = select(Usuario.email)
     emails = db.execute(email_query).scalars().all()
-    email_error = (user.email in emails and not wanted) or (user.email not in emails and wanted)
+    email_error = (
+        (user.email in emails and not wanted) or
+        (user.email not in emails and wanted)
+    )
     if email_error:
         keyword = "não" if wanted else "já"
         raise FlxException(
@@ -27,35 +30,38 @@ def validate_existing_email(user, db, wanted):
             status_code=401
         )
 
+
 def validate_non_admin_team(user):
-    if user.role != UsuarioRole.ADMIN and user.teamId == None:
+    if user.role != UsuarioRole.ADMIN and user.teamId is None:
         raise FlxException(
             code="FLX_VALIDATION_ERROR",
             message="Esse usuário precisa cadastrar um time.",
             status_code=400
         )
 
+
 def validate_correct_password(data, db, user):
     if not security.verify_password(data.password, user.password):
         raise FlxException(
             code="FLX_UNAUTHORIZED",
-            message=f"Senha incorreta.",
+            message="Senha incorreta.",
             status_code=401
         )
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-async def register(user: RegisterRequest, db: Session = Depends(get_db)) -> TokenResponse:
+async def register(
+    user: RegisterRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     validate_existing_email(user, db, False)
-
     validate_non_admin_team(user)
 
-    new_user = Usuario (
-        email = user.email,
-        password = security.get_password_hash(user.password),
-        name = user.name,
-        teamId = user.teamId,
-        role = user.role,
+    new_user = Usuario(
+        email=user.email,
+        password=security.get_password_hash(user.password),
+        name=user.name,
+        teamId=user.teamId,
+        role=user.role,
     )
 
     db.add(new_user)
@@ -67,10 +73,13 @@ async def register(user: RegisterRequest, db: Session = Depends(get_db)) -> Toke
         "role": new_user.role,
         "teamId": new_user.teamId
     })
-    return {'access_token': token}
+    return TokenResponse(access_token=token)
 
-@router.post('/login', status_code=status.HTTP_200_OK)
-async def login(data: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
+
+@router.post("/login", status_code=status.HTTP_200_OK)
+async def login(
+    data: LoginRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
     validate_existing_email(data, db, True)
 
     user_query = select(Usuario).where(Usuario.email == data.email)
@@ -83,4 +92,4 @@ async def login(data: LoginRequest, db: Session = Depends(get_db)) -> TokenRespo
         "role": user.role,
         "teamId": user.teamId
     })
-    return {'access_token': token}
+    return TokenResponse(access_token=token)

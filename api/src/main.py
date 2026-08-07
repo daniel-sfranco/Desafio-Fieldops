@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from routes import auth
 from utils.database import engine, base
 from utils.exceptions import register_exception_handlers
-import models
+import models  # noqa: F401
 
 
 @asynccontextmanager

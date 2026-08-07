@@ -1,13 +1,9 @@
-from typing import Optional, List
 from datetime import datetime
-from sqlalchemy import String, Enum, Text, ForeignKey, DateTime
+from typing import List, Optional
+from sqlalchemy import String, Enum as SQLEnum, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from api.src.database import base
-
-from .Usuario import Usuario
-from .Checklist import Checklist
-from .Auditoria import Auditoria
+from database import base
 from .enums.Status import Status
 from .enums.Priority import Priority
 
@@ -16,15 +12,17 @@ class OS(base):
     __tablename__ = "flx_work_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True, index=True)
-    title: Mapped[str] = mapped_column(String(100), nullable=False)
-    description = Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[Status] = mapped_column(Enum(Status))
-    priority: Mapped[Priority] = mapped_column(Enum(Priority))
-    resolutionNotes:  Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    assigneeId: Mapped["Usuario"] = relationship(back_populates="osList")
-    teamId: Mapped[str] = mapped_column(String(20))
-    version: Mapped[int] = mapped_column(default=1)
-    createdAt: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now)
-    updatedAt: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now)
-    checkList: Mapped[List["Checklist"]] = relationship(back_populates="workOrderId")
-    auditList: Mapped[List["Auditoria"]] = relationship(back_populates="workOrderId")
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[Status] = mapped_column(SQLEnum(Status), default=Status.OPEN, nullable=False)
+    priority: Mapped[Priority] = mapped_column(SQLEnum(Priority), default=Priority.LOW, nullable=False)
+    resolutionNotes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    assigneeId: Mapped[Optional[int]] = mapped_column(ForeignKey("flx_users.id"), nullable=True)
+    teamId: Mapped[str] = mapped_column(String(50), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    createdAt: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    assignee: Mapped[Optional["Usuario"]] = relationship("Usuario", back_populates="osList")
+    checkList: Mapped[List["Checklist"]] = relationship("Checklist", back_populates="workOrder", cascade="all, delete-orphan")
+    auditList: Mapped[List["Auditoria"]] = relationship("Auditoria", back_populates="workOrder", cascade="all, delete-orphan")

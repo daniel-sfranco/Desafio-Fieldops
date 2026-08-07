@@ -7,6 +7,6 @@ RUN pip install --upgrade pip && \
 
 COPY . .
 
-RUN chmod +x src/main.py
+ENV PYTHONPATH=/app/src
 
 CMD [ "fastapi", "dev", "src/main.py", "--host", "0.0.0.0", "--port", "8000" ]

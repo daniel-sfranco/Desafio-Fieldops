@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
+from routes import auth
 from database import engine, base
 from exceptions import register_exception_handlers
 import models
@@ -17,6 +18,8 @@ app = FastAPI(
     version="2026.2",
     lifespan=lifespan
 )
+
+app.include_router(auth.router)
 
 register_exception_handlers(app)
 

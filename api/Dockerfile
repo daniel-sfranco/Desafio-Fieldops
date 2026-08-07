@@ -9,4 +9,4 @@ COPY . .
 
 RUN chmod +x src/main.py
 
-CMD [ "fastapi", "run", "src/main.py" ]
+CMD [ "fastapi", "dev", "src/main.py", "--host", "0.0.0.0", "--port", "8000" ]

@@ -122,7 +122,7 @@ async def create_os(
     decoded_token: Dict[str, Any] = Depends(get_current_user), 
     db: Session = Depends(get_db)
     ) -> WorkOrderResponse:
-    role, user_id, user_team = get_user_data
+    role, user_id, user_team = get_user_data(decoded_token)
     validate_creator(decoded_token)
 
     validate_team(decoded_token, os.teamId)
@@ -228,6 +228,14 @@ async def delete_os(
 def otimist_concurrence():
     pass
 
+
+def validate_assignee_patch(data, role, user_team, db):
+    if data.assigneeId is not None:
+        assignee_query = select(Usuario).where(Usuario.id == data.assigneeId)
+        assignee = db.execute(assignee_query).scalars().first()
+        validate_assignee(assignee, role, user_team)
+
+
 def status_transition_validation():
     pass
 
@@ -259,19 +267,18 @@ async def patch_os(
     role, user_id, user_team = get_user_data(decoded_token)
 
     item = await details_os(item_id, db, decoded_token)
-    if data.status is None:
-        if data.assigneeId is not None:
-            assignee_query = select(Usuario).where(Usuario.id == data.assigneeId)
-            assignee = db.execute(assignee_query).scalars().first()
-            validate_assignee(assignee, role, user_team)
-        patched_item = fields_update(item, data)
-        commit_item(item, db)
-        return patched_item
+    validate_assignee_patch(data, role, user_team, db)
 
-    otimist_concurrence()
-    status_transition_validation()
+    if data.status is not None:
+        otimist_concurrence()
+        status_transition_validation()
+
+    prev_status = item.status
     patched_item = fields_update(item, data)
-    generate_audit()
+
+    if data.status != prev_status:
+        generate_audit()
+
     commit_item(item, db)
     return patched_item
 

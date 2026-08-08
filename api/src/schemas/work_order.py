@@ -25,23 +25,6 @@ class WorkOrderUpdate(BaseModel):
     resolutionNotes: Optional[str] = None
     version: Optional[int] = None
 
-    @model_validator(mode="after")
-    def validate_status_rules(self) -> "WorkOrderUpdate":
-        if self.status is not None:
-            if self.version is None:
-                raise ValueError(
-                    "O campo 'version' é obrigatório ao alterar o status."
-                )
-
-            if self.status == Status.DONE:
-                notes = self.resolutionNotes
-                if not notes or len(notes.strip()) < 10:
-                    raise ValueError(
-                        "O campo 'resolutionNotes' deve conter no mínimo 10 "
-                        "caracteres para concluir a OS."
-                    )
-        return self
-
 
 class WorkOrderResponse(BaseModel):
     id: int

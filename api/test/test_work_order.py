@@ -338,3 +338,56 @@ def test_get_work_order_details_out_of_scope_returns_404(client):
     res_tech1 = client.get(f"/work-orders/{os_id}", headers={"Authorization": f"Bearer {tech1_token}"})
     assert res_tech1.status_code == 404
     assert res_tech1.json()["error"]["code"] == "FLX_NOT_FOUND"
+
+
+# ==========================================
+# TESTES DE DELEÇÃO DE OS (DELETE /work-orders/:id)
+# ==========================================
+
+def test_delete_work_order_success(client):
+    """Testa a exclusão de uma OS com sucesso (HTTP 204)."""
+    sup_token, _ = create_user(client, "sup_del@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    headers = {"Authorization": f"Bearer {sup_token}"}
+
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Deletar", "priority": "low", "teamId": "team-alpha", "initialChecklist": [{"label": "C"}]
+    }, headers=headers)
+    os_id = create_res.json()["id"]
+
+    # Deleta a OS
+    del_res = client.delete(f"/work-orders/{os_id}", headers=headers)
+    assert del_res.status_code == 204
+
+    # Confirma que a OS não existe mais
+    get_res = client.get(f"/work-orders/{os_id}", headers=headers)
+    assert get_res.status_code == 404
+    assert get_res.json()["error"]["code"] == "FLX_NOT_FOUND"
+
+
+def test_delete_work_order_not_found(client):
+    """Testa a exclusão de uma OS com ID inexistente (HTTP 404)."""
+    admin_token, _ = create_user(client, "admin_del_nf@fieldops.eval", "Admin", "admin", None)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    del_res = client.delete("/work-orders/99999", headers=headers)
+    assert del_res.status_code == 404
+    assert del_res.json()["error"]["code"] == "FLX_NOT_FOUND"
+
+
+def test_delete_work_order_out_of_scope_fails(client):
+    """Testa se um técnico tentando deletar OS de outro técnico/time recebe HTTP 404."""
+    sup_token, _ = create_user(client, "sup_del_scope@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech1_token, _ = create_user(client, "tech1_del@fieldops.eval", "Técnico 1", "technician", "team-alpha")
+    tech2_token, _ = create_user(client, "tech2_del@fieldops.eval", "Técnico 2", "technician", "team-alpha")
+    tech2_id = get_user_id_from_token(tech2_token)
+
+    # Cria OS para Tech 2
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Tech 2 Para Deletar", "priority": "low", "teamId": "team-alpha", "assigneeId": tech2_id, "initialChecklist": [{"label": "C"}]
+    }, headers={"Authorization": f"Bearer {sup_token}"})
+    os_id = create_res.json()["id"]
+
+    # Tech 1 tenta deletar a OS do Tech 2 -> bloqueado com 404
+    del_res = client.delete(f"/work-orders/{os_id}", headers={"Authorization": f"Bearer {tech1_token}"})
+    assert del_res.status_code == 404
+    assert del_res.json()["error"]["code"] == "FLX_NOT_FOUND"

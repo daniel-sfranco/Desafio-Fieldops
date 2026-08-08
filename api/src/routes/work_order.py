@@ -30,8 +30,7 @@ def get_user_data(decoded_token: Dict[str, Any]):
     return role, user_id, user_team
 
 
-def validate_creator(decoded_token: Dict[str, Any]):
-    role = decoded_token.get("role")
+def validate_creator(role: str):
     allowed = [UsuarioRole.SUPERVISOR, UsuarioRole.ADMIN, UsuarioRole.SUPERVISOR.value, UsuarioRole.ADMIN.value]
     if role not in allowed:
         raise FlxException(
@@ -41,7 +40,7 @@ def validate_creator(decoded_token: Dict[str, Any]):
         )
 
 
-def validate_assignee(assignee: Usuario, decoded_token: Dict[str, Any], db: Session = Depends(get_db)):
+def validate_assignee(assignee: Usuario, role: str, teamId: str):
     if not assignee:
         raise FlxException(
             code="FLX_VALIDATION_ERROR",
@@ -57,9 +56,8 @@ def validate_assignee(assignee: Usuario, decoded_token: Dict[str, Any], db: Sess
             status_code=422
         )
 
-    token_role = decoded_token.get("role")
-    if token_role in [UsuarioRole.SUPERVISOR, UsuarioRole.SUPERVISOR.value]:
-        if assignee.teamId != decoded_token.get("teamId"):
+    if role in [UsuarioRole.SUPERVISOR, UsuarioRole.SUPERVISOR.value]:
+        if assignee.teamId != teamId:
             raise FlxException(
                 code="FLX_FORBIDDEN",
                 message="Usuário designado não é da mesma equipe do supervisor",
@@ -124,6 +122,7 @@ async def create_os(
     decoded_token: Dict[str, Any] = Depends(get_current_user), 
     db: Session = Depends(get_db)
     ) -> WorkOrderResponse:
+    role, user_id, user_team = get_user_data
     validate_creator(decoded_token)
 
     validate_team(decoded_token, os.teamId)
@@ -131,7 +130,7 @@ async def create_os(
     if os.assigneeId:
         assignee_query = select(Usuario).where(Usuario.id == os.assigneeId)
         assignee = db.execute(assignee_query).scalars().first()
-        validate_assignee(assignee, decoded_token)
+        validate_assignee(assignee, role, user_team)
 
     new_os = OS (
         title = os.title,
@@ -214,7 +213,6 @@ async def details_os(
     return item
 
 
-
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_os(
     item_id: int,
@@ -252,7 +250,7 @@ def commit_item(item, db):
 
 
 @router.patch("/{item_id}", status_code=status.HTTP_200_OK)
-async def delete_os(
+async def patch_os(
     item_id: int,
     data: WorkOrderUpdate,
     db: Session = Depends(get_db),
@@ -262,7 +260,18 @@ async def delete_os(
 
     item = await details_os(item_id, db, decoded_token)
     if data.status is None:
+        if data.assigneeId is not None:
+            assignee_query = select(Usuario).where(Usuario.id == data.assigneeId)
+            assignee = db.execute(assignee_query).scalars().first()
+            validate_assignee(assignee, role, user_team)
         patched_item = fields_update(item, data)
         commit_item(item, db)
+        return patched_item
 
+    otimist_concurrence()
+    status_transition_validation()
+    patched_item = fields_update(item, data)
+    generate_audit()
+    commit_item(item, db)
     return patched_item
+

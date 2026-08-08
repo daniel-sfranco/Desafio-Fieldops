@@ -523,3 +523,58 @@ def test_invalid_status_transition_direct_open_to_done(client):
     assert res.status_code == 422
     assert res.json()["error"]["code"] == "FLX_INVALID_STATUS_TRANSITION"
 
+
+def test_technician_cannot_reassign_assignee_id_403(client):
+    """Testa se um técnico tentando transferir o assigneeId da OS recebe HTTP 403."""
+    sup_token, _ = create_user(client, "sup_reassign@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech1_token, _ = create_user(client, "tech1_reassign@fieldops.eval", "Técnico 1", "technician", "team-alpha")
+    tech2_token, _ = create_user(client, "tech2_reassign@fieldops.eval", "Técnico 2", "technician", "team-alpha")
+    tech1_id = get_user_id_from_token(tech1_token)
+    tech2_id = get_user_id_from_token(tech2_token)
+
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Reassign Test", "priority": "low", "teamId": "team-alpha", "assigneeId": tech1_id, "initialChecklist": [{"label": "C"}]
+    }, headers={"Authorization": f"Bearer {sup_token}"})
+    os_id = create_res.json()["id"]
+
+    # Tech 1 tenta mudar assigneeId para Tech 2
+    res = client.patch(f"/work-orders/{os_id}", json={
+        "assigneeId": tech2_id,
+        "version": 1
+    }, headers={"Authorization": f"Bearer {tech1_token}"})
+
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FLX_FORBIDDEN"
+
+
+def test_technician_cannot_modify_title_or_description_403(client):
+    """Testa se um técnico tentando alterar title ou description recebe HTTP 403."""
+    sup_token, _ = create_user(client, "sup_title@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech_token, _ = create_user(client, "tech_title@fieldops.eval", "Técnico", "technician", "team-alpha")
+    tech_id = get_user_id_from_token(tech_token)
+
+    create_res = client.post("/work-orders/", json={
+        "title": "Título Original", "description": "Desc Original", "priority": "low", "teamId": "team-alpha", "assigneeId": tech_id, "initialChecklist": [{"label": "C"}]
+    }, headers={"Authorization": f"Bearer {sup_token}"})
+    os_id = create_res.json()["id"]
+
+    # Tech tenta mudar o título
+    res = client.patch(f"/work-orders/{os_id}", json={
+        "title": "Título Alterado Pelo Técnico",
+        "version": 1
+    }, headers={"Authorization": f"Bearer {tech_token}"})
+
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "FLX_FORBIDDEN"
+
+
+def test_unhandled_route_returns_flx_envelope_404(client):
+    """Testa se rota inexistente retorna formato padronizado com FLX_NOT_FOUND e flxTraceId."""
+    res = client.get("/rota-completamente-inexistente")
+    assert res.status_code == 404
+    data = res.json()
+    assert "error" in data
+    assert data["error"]["code"] == "FLX_NOT_FOUND"
+    assert "flxTraceId" in data["error"]
+
+

@@ -28,7 +28,7 @@ def test_webhook_get_data_payload_structure_and_idempotency():
     assert payload["fromStatus"] == "open"
     assert payload["toStatus"] == "in_progress"
     assert payload["actorId"] == 2
-    assert payload["occurredAt"] == "2026-06-19T14:00:00"
+    assert payload["occurredAt"] == "2026-06-19T14:00:00.000Z"
 
     # Teste de idempotência: o mesmo evento de auditoria gera exatamente o mesmo eventId
     payload2 = get_data(audit)

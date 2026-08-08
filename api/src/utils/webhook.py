@@ -17,6 +17,14 @@ load_dotenv(find_dotenv(usecwd=True))
 logger = logging.getLogger(__name__)
 
 
+def format_iso_utc(dt: Optional[Any]) -> Optional[str]:
+    if dt is None:
+        return None
+    if hasattr(dt, "strftime"):
+        return dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return str(dt)
+
+
 def get_data(event: Auditoria) -> Dict[str, Any]:
     from_status = (
         event.fromStatus.value
@@ -37,19 +45,13 @@ def get_data(event: Auditoria) -> Dict[str, Any]:
         )
     )
 
-    created_at_str = (
-        event.createdAt.isoformat()
-        if event.createdAt
-        else None
-    )
-
     return {
         "eventId": event_id,
         "workOrderId": event.workOrderId,
         "fromStatus": from_status,
         "toStatus": to_status,
         "actorId": event.actorId,
-        "occurredAt": created_at_str
+        "occurredAt": format_iso_utc(event.createdAt)
     }
 
 

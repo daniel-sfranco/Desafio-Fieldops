@@ -6,6 +6,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.encoders import jsonable_encoder
 
 
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
 class FlxException(Exception):
     def __init__(
         self,
@@ -49,6 +52,43 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "message": "Erro de validação nos dados fornecidos.",
                     "flxTraceId": str(uuid.uuid4()),
                     "details": {"errors": jsonable_encoder(exc.errors())},
+                }
+            },
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        request: Request, exc: StarletteHTTPException
+    ):
+        code_map = {
+            401: "FLX_UNAUTHORIZED",
+            403: "FLX_FORBIDDEN",
+            404: "FLX_NOT_FOUND",
+            405: "FLX_METHOD_NOT_ALLOWED",
+            409: "FLX_CONCURRENT_UPDATE",
+        }
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": {
+                    "code": code_map.get(exc.status_code, "FLX_ERROR"),
+                    "message": str(exc.detail),
+                    "flxTraceId": str(uuid.uuid4()),
+                    "details": {},
+                }
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def generic_exception_handler(request: Request, exc: Exception):
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "code": "FLX_INTERNAL_ERROR",
+                    "message": "Ocorreu um erro interno no servidor.",
+                    "flxTraceId": str(uuid.uuid4()),
+                    "details": {},
                 }
             },
         )

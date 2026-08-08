@@ -15,24 +15,25 @@ router = APIRouter(
 )
 
 
-def validate_existing_email(user, db, wanted):
-    email_query = select(Usuario.email)
-    emails = db.execute(email_query).scalars().all()
-    email_error = (
-        (user.email in emails and not wanted) or
-        (user.email not in emails and wanted)
-    )
-    if email_error:
-        keyword = "não" if wanted else "já"
+def validate_existing_email(user_email: str, db: Session, wanted: bool):
+    user = db.scalar(select(Usuario).where(Usuario.email == user_email))
+    if wanted and user is None:
         raise FlxException(
             code="FLX_UNAUTHORIZED",
-            message=f"Esse email {keyword} está em uso.",
+            message="Esse email não está em uso.",
             status_code=401
         )
+    if not wanted and user is not None:
+        raise FlxException(
+            code="FLX_UNAUTHORIZED",
+            message="Esse email já está em uso.",
+            status_code=401
+        )
+    return user
 
 
-def validate_non_admin_team(user):
-    if user.role != UsuarioRole.ADMIN and user.teamId is None:
+def validate_non_admin_team(user: RegisterRequest):
+    if user.role != UsuarioRole.ADMIN and not user.teamId:
         raise FlxException(
             code="FLX_VALIDATION_ERROR",
             message="Esse usuário precisa cadastrar um time.",
@@ -40,8 +41,8 @@ def validate_non_admin_team(user):
         )
 
 
-def validate_correct_password(data, db, user):
-    if not security.verify_password(data.password, user.password):
+def validate_correct_password(plain_password: str, hashed_password: str):
+    if not security.verify_password(plain_password, hashed_password):
         raise FlxException(
             code="FLX_UNAUTHORIZED",
             message="Senha incorreta.",
@@ -53,7 +54,7 @@ def validate_correct_password(data, db, user):
 async def register(
     user: RegisterRequest, db: Session = Depends(get_db)
 ) -> TokenResponse:
-    validate_existing_email(user, db, False)
+    validate_existing_email(user.email, db, False)
     validate_non_admin_team(user)
 
     new_user = Usuario(
@@ -80,12 +81,8 @@ async def register(
 async def login(
     data: LoginRequest, db: Session = Depends(get_db)
 ) -> TokenResponse:
-    validate_existing_email(data, db, True)
-
-    user_query = select(Usuario).where(Usuario.email == data.email)
-    user = db.execute(user_query).scalars().first()
-
-    validate_correct_password(data, db, user)
+    user = validate_existing_email(data.email, db, True)
+    validate_correct_password(data.password, user.password)
 
     token = security.create_access_token({
         "sub": str(user.id),

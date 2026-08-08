@@ -1,10 +1,10 @@
 from enum import Enum
-import math, os
+import math
 from typing import Any, Dict, List
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import asc, delete, desc, func, select
+from sqlalchemy import asc, desc, func, select
 
 from models.Auditoria import Auditoria
 from models.Checklist import Checklist
@@ -13,7 +13,13 @@ from models.Usuario import Usuario
 from models.enums.Status import Status
 from models.enums.Priority import Priority
 from models.enums.UsuarioRole import UsuarioRole
-from schemas.work_order import *
+from schemas.work_order import (
+    WorkOrderCreate,
+    WorkOrderUpdate,
+    WorkOrderResponse,
+    WorkOrderListQuery,
+    WorkOrderListResponse,
+)
 from schemas.audit import WorkOrderEventResponse
 from schemas.checklist import ChecklistItemUpdate, ChecklistItemResponse
 
@@ -241,6 +247,12 @@ async def delete_os(
 
 def validate_assignee_patch(data: WorkOrderUpdate, role: str, user_team: str, db: Session):
     if data.assigneeId is not None:
+        if role in [UsuarioRole.TECHNICIAN, UsuarioRole.TECHNICIAN.value]:
+            raise FlxException(
+                code="FLX_FORBIDDEN",
+                message="Técnicos não possuem permissão para reatribuir ordens de serviço.",
+                status_code=403
+            )
         assignee_query = select(Usuario).where(Usuario.id == data.assigneeId)
         assignee = db.execute(assignee_query).scalars().first()
         validate_assignee(assignee, role, user_team)
@@ -302,12 +314,20 @@ def status_transition_validation(item: OS, data: WorkOrderUpdate, role: str):
 
 
 def fields_update(item: OS, data: WorkOrderUpdate, role: str):
-    if data.priority is not None and role in [UsuarioRole.TECHNICIAN, UsuarioRole.TECHNICIAN.value]:
-        raise FlxException(
-            code="FLX_FORBIDDEN",
-            message="Uma ordem de serviço não pode ter sua prioridade alterada por um técnico.",
-            status_code=403
-        )
+    if role in [UsuarioRole.TECHNICIAN, UsuarioRole.TECHNICIAN.value]:
+        if data.priority is not None:
+            raise FlxException(
+                code="FLX_FORBIDDEN",
+                message="Uma ordem de serviço não pode ter sua prioridade alterada por um técnico.",
+                status_code=403
+            )
+        if data.title is not None or data.description is not None:
+            raise FlxException(
+                code="FLX_FORBIDDEN",
+                message="Técnicos não possuem permissão para alterar o título ou a descrição da ordem de serviço.",
+                status_code=403
+            )
+
     update_data = data.model_dump(exclude_unset=True)
     update_data.pop("version", None)
     for key, value in update_data.items():
@@ -336,6 +356,7 @@ def commit_item(item: OS, db: Session):
 async def patch_os(
     item_id: int,
     data: WorkOrderUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     decoded_token: Dict[str, Any] = Depends(get_current_user),
 ) -> WorkOrderResponse:
@@ -357,7 +378,7 @@ async def patch_os(
         if new_status != prev_status:
             audit = generate_audit(item, prev_status, new_status, user_id, db)
             commit_item(item, db)
-            await notify(audit)
+            background_tasks.add_task(notify, audit)
         else:
             commit_item(item, db)
     else:

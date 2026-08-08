@@ -284,3 +284,57 @@ def test_list_work_orders_out_of_bounds_page_returns_empty_list(client):
     data = response.json()
     assert data["data"] == []
     assert data["meta"]["page"] == 999
+
+
+# ==========================================
+# TESTES DE DETALHE DE OS (GET /work-orders/:id)
+# ==========================================
+
+def test_get_work_order_details_success(client):
+    """Testa a obtenção do detalhe de uma OS válida."""
+    sup_token, _ = create_user(client, "sup_detail@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    headers = {"Authorization": f"Bearer {sup_token}"}
+
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Detalhe Teste", "priority": "high", "teamId": "team-alpha", "initialChecklist": [{"label": "Verificar peça"}]
+    }, headers=headers)
+    os_id = create_res.json()["id"]
+
+    res = client.get(f"/work-orders/{os_id}", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["id"] == os_id
+    assert data["title"] == "OS Detalhe Teste"
+    assert len(data["checkList"]) == 1
+    assert data["checkList"][0]["label"] == "Verificar peça"
+
+
+def test_get_work_order_details_not_found(client):
+    """Testa a consulta a uma OS com ID inexistente (HTTP 404)."""
+    admin_token, _ = create_user(client, "admin_detail_nf@fieldops.eval", "Admin", "admin", None)
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    res = client.get("/work-orders/99999", headers=headers)
+    assert res.status_code == 404
+    error = res.json()
+    assert error["error"]["code"] == "FLX_NOT_FOUND"
+
+
+def test_get_work_order_details_out_of_scope_returns_404(client):
+    """Testa se um técnico tentando acessar detalhe de OS de outro técnico/time recebe HTTP 404."""
+    sup_token, _ = create_user(client, "sup_detail_scope@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech1_token, _ = create_user(client, "tech1_detail@fieldops.eval", "Técnico 1", "technician", "team-alpha")
+    tech2_token, _ = create_user(client, "tech2_detail@fieldops.eval", "Técnico 2", "technician", "team-alpha")
+
+    tech2_id = get_user_id_from_token(tech2_token)
+
+    # Cria OS para Tech 2
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Tech 2 Exclusiva", "priority": "low", "teamId": "team-alpha", "assigneeId": tech2_id, "initialChecklist": [{"label": "C"}]
+    }, headers={"Authorization": f"Bearer {sup_token}"})
+    os_id = create_res.json()["id"]
+
+    # Tech 1 tenta acessar detalhe da OS do Tech 2 -> deve retornar 404 (fora de escopo)
+    res_tech1 = client.get(f"/work-orders/{os_id}", headers={"Authorization": f"Bearer {tech1_token}"})
+    assert res_tech1.status_code == 404
+    assert res_tech1.json()["error"]["code"] == "FLX_NOT_FOUND"

@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, status
@@ -22,7 +23,9 @@ router = APIRouter (
 
 
 def validate_creator(decoded_token: Dict[str, Any]):
-    if decoded_token["role"] not in [UsuarioRole.SUPERVISOR, UsuarioRole.ADMIN]:
+    role = decoded_token.get("role")
+    allowed = [UsuarioRole.SUPERVISOR, UsuarioRole.ADMIN, UsuarioRole.SUPERVISOR.value, UsuarioRole.ADMIN.value]
+    if role not in allowed:
         raise FlxException(
             code="FLX_FORBIDDEN",
             message="Criador da ordem de serviço deve ser um supervisor ou um administrador do sistema.",
@@ -38,15 +41,17 @@ def validate_assignee(assignee: Usuario, decoded_token: Dict[str, Any], db: Sess
             status_code=422
         )
 
-    if assignee.role != UsuarioRole.TECHNICIAN:
+    assignee_role = assignee.role.value if isinstance(assignee.role, Enum) else assignee.role
+    if assignee_role != UsuarioRole.TECHNICIAN.value:
         raise FlxException(
             code="FLX_VALIDATION_ERROR",
             message="Usuário designado não é um técnico",
             status_code=422
         )
 
-    if decoded_token["role"] == UsuarioRole.SUPERVISOR:
-        if assignee.teamId != decoded_token["teamId"]:
+    token_role = decoded_token.get("role")
+    if token_role in [UsuarioRole.SUPERVISOR, UsuarioRole.SUPERVISOR.value]:
+        if assignee.teamId != decoded_token.get("teamId"):
             raise FlxException(
                 code="FLX_FORBIDDEN",
                 message="Usuário designado não é da mesma equipe do supervisor",
@@ -54,10 +59,10 @@ def validate_assignee(assignee: Usuario, decoded_token: Dict[str, Any], db: Sess
             )
 
 
-
 def validate_team(decoded_token: Dict[str, Any], teamId: str):
-    if decoded_token["role"] == UsuarioRole.SUPERVISOR:
-        if decoded_token["teamId"] != teamId:
+    token_role = decoded_token.get("role")
+    if token_role in [UsuarioRole.SUPERVISOR, UsuarioRole.SUPERVISOR.value]:
+        if decoded_token.get("teamId") != teamId:
             raise FlxException(
                 code="FLX_FORBIDDEN",
                 message="Um supervisor pode criar ordens de serviço apenas para sua própria equipe.",

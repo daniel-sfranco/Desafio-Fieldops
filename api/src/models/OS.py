@@ -36,12 +36,12 @@ class OS(base):
     teamId: Mapped[str] = mapped_column(String(50), nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     createdAt: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=datetime.now, nullable=False
     )
     updatedAt: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=datetime.now,
+        onupdate=datetime.now,
         nullable=False
     )
 

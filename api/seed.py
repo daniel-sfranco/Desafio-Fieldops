@@ -15,8 +15,16 @@ from models.enums.Status import Status
 from models.enums.Priority import Priority
 
 
-def seed_database():
-    print("🌱 Criando tabelas no banco de dados...")
+def seed_database(reset: bool = True):
+    if reset:
+        print("🗑️ Apagando tabelas antigas e resolvendo conflitos de schema...")
+        try:
+            base.metadata.drop_all(bind=engine)
+            print("  [✓] Tabelas antigas removidas com sucesso.")
+        except Exception as e:
+            print(f"  [!] Aviso ao apagar tabelas: {e}")
+
+    print("🌱 Criando tabelas limpas no banco de dados...")
     base.metadata.create_all(bind=engine)
 
     db = sessionLocal()
@@ -55,31 +63,21 @@ def seed_database():
 
         created_users = {}
         for u in users_data:
-            existing = db.query(Usuario).filter(Usuario.email == u["email"]).first()
-            if not existing:
-                user = Usuario(
-                    email=u["email"],
-                    password=u["password"],
-                    name=u["name"],
-                    teamId=u["teamId"],
-                    role=u["role"],
-                )
-                db.add(user)
-                db.flush()
-                created_users[u["email"]] = user
-                print(f"  [+] Usuário criado: {u['email']} ({u['role'].value})")
-            else:
-                created_users[u["email"]] = existing
-                print(f"  [=] Usuário já existente: {u['email']}")
+            user = Usuario(
+                email=u["email"],
+                password=u["password"],
+                name=u["name"],
+                teamId=u["teamId"],
+                role=u["role"],
+            )
+            db.add(user)
+            db.flush()
+            created_users[u["email"]] = user
+            print(f"  [+] Usuário criado: {u['email']} ({u['role'].value})")
 
         db.commit()
 
         # 2. Ordens de Serviço Fictícias para Testes no Postman
-        existing_os = db.query(OS).first()
-        if existing_os:
-            print("  [=] Ordens de serviço já existentes no banco. Ignorando criação de OSs fictícias.")
-            return
-
         tech_a = created_users["tech-a@fieldops.eval"]
         tech_b = created_users["tech-b@fieldops.eval"]
         sup_a = created_users["supervisor-a@fieldops.eval"]
@@ -162,7 +160,7 @@ def seed_database():
         db.add(os5)
 
         db.commit()
-        print("  [+] 5 Ordens de Serviço fictícias criadas com sucesso!")
+        print("  [+] Banco de dados recriado do zero com 5 Ordens de Serviço fictícias!")
 
     except Exception as e:
         db.rollback()
@@ -173,4 +171,4 @@ def seed_database():
 
 
 if __name__ == "__main__":
-    seed_database()
+    seed_database(reset=True)

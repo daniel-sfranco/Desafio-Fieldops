@@ -76,7 +76,7 @@ def test_register_non_admin_without_team_fails(client):
         "teamId": None
     }
     response = client.post("/auth/register", json=payload)
-    assert response.status_code == 400
+    assert response.status_code == 422
     error_data = response.json()
     assert error_data["error"]["code"] == "FLX_VALIDATION_ERROR"
     assert "precisa cadastrar um time" in error_data["error"]["message"]

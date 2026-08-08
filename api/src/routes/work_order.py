@@ -4,7 +4,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import asc, desc, func, select
+from sqlalchemy import asc, delete, desc, func, select
 
 from models.Checklist import Checklist
 from models.OS import OS
@@ -209,3 +209,16 @@ async def details_os(
         )
     
     return item
+
+
+
+@router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_os(
+    item_id: int,
+    db: Session = Depends(get_db),
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+):
+    item = await details_os(item_id, db, decoded_token)
+    db.delete(item)
+    db.commit()
+    return

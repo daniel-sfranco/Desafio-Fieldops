@@ -1,9 +1,10 @@
 from enum import Enum
+import math
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import asc, desc, func, select
 
 from models.Checklist import Checklist
 from models.OS import OS
@@ -70,6 +71,46 @@ def validate_team(decoded_token: Dict[str, Any], teamId: str):
             )
 
 
+def validate_scope(query, sub, role, teamId):
+    if role == "technician":
+        query = query.where(OS.assigneeId == sub)
+    elif role == "supervisor":
+        query = query.where(OS.teamId == teamId)
+    return query
+
+
+def apply_filters(query, params):
+    if params.status:
+        query = query.where(OS.status == params.status)
+    if params.priority:
+        query = query.where(OS.priority == params.priority)
+    return query
+
+
+def get_ordenation(query, sort_param: str):
+    # 1. Dicionário com as colunas permitidas para ordenação
+    SORT_FIELDS = {
+        "createdAt": OS.createdAt,
+        "updatedAt": OS.updatedAt,
+        "priority": OS.priority,
+        "status": OS.status,
+        "title": OS.title,
+    }
+    # 2. Separa a string em campo e direção (ex: "createdAt:desc")
+    if ":" in sort_param:
+        field_name, direction = sort_param.split(":", 1)
+    else:
+        field_name, direction = "createdAt", "desc"
+    # 3. Obtém a coluna (se não existir no dicionário, usa OS.createdAt como fallback)
+    sort_column = SORT_FIELDS.get(field_name, OS.createdAt)
+    # 4. Aplica asc() ou desc()
+    if direction.lower() == "asc":
+        query = query.order_by(asc(sort_column))
+    else:
+        query = query.order_by(desc(sort_column))
+    return query
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_os(
     os: WorkOrderCreate, 
@@ -105,3 +146,42 @@ async def create_os(
     db.refresh(new_os)
 
     return new_os
+
+
+@router.get("/", status_code=status.HTTP_200_OK)
+async def list_os(
+    params: WorkOrderListQuery = Depends(),
+    decoded_token: Dict[str, Any] = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+    ) -> WorkOrderListResponse:
+    role = decoded_token.get("role")
+    user_id = int(decoded_token.get("sub"))
+    user_team = decoded_token.get("teamId")
+
+    total_query = select(func.count(OS.id))
+    total_query = validate_scope(total_query, user_id, role, user_team)
+    total_query = apply_filters(total_query, params)
+    total_items = db.execute(total_query).scalar()
+
+    total_pages = math.ceil(total_items / params.perPage) if total_items > 0 else 1
+
+    query = select(OS).options(selectinload(OS.checkList))
+    query = validate_scope(query, user_id, role, user_team)
+    query = apply_filters(query, params)
+    query = get_ordenation(query, params.sort)
+    query = (query.offset((params.page - 1) * params.perPage)
+                  .limit(params.perPage))
+
+    items = db.execute(query).scalars().all()
+
+    response = {
+        "data": items,
+        "meta": {
+            "page": params.page,
+            "limit": params.perPage,
+            "total": total_items,
+            "totalPages": total_pages,
+        }
+    }
+
+    return response

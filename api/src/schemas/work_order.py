@@ -68,3 +68,14 @@ class WorkOrderListQuery(BaseModel):
     status: Optional[Status] = None
     priority: Optional[Priority] = None
     sort: str = "createdAt:desc"
+
+
+class PaginationMeta(BaseModel):
+    page: int
+    limit: int
+    total: int
+    totalPages: int
+
+class WorkOrderListResponse(BaseModel):
+    data: List[WorkOrderResponse]
+    meta: PaginationMeta

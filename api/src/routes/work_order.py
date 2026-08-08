@@ -1,23 +1,27 @@
 from enum import Enum
 import math
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import asc, delete, desc, func, select
 
+from models.Auditoria import Auditoria
 from models.Checklist import Checklist
 from models.OS import OS
 from models.Usuario import Usuario
 from models.enums.Status import Status
+from models.enums.Priority import Priority
 from models.enums.UsuarioRole import UsuarioRole
 from schemas.work_order import *
+from schemas.audit import WorkOrderEventResponse
+from schemas.checklist import ChecklistItemUpdate, ChecklistItemResponse
 
 from utils.database import get_db
 from utils.exceptions import FlxException
 from utils.security import get_current_user
 
-router = APIRouter (
+router = APIRouter(
     prefix="/work-orders",
     tags=["Work Order Module"]
 )
@@ -76,15 +80,15 @@ def validate_team(decoded_token: Dict[str, Any], teamId: str):
             )
 
 
-def validate_scope(query, sub, role, teamId):
-    if role == "technician":
+def validate_scope(query, sub: int, role: str, teamId: str):
+    if role == UsuarioRole.TECHNICIAN.value or role == UsuarioRole.TECHNICIAN:
         query = query.where(OS.assigneeId == sub)
-    elif role == "supervisor":
+    elif role == UsuarioRole.SUPERVISOR.value or role == UsuarioRole.SUPERVISOR:
         query = query.where(OS.teamId == teamId)
     return query
 
 
-def apply_filters(query, params):
+def apply_filters(query, params: WorkOrderListQuery):
     if params.status:
         query = query.where(OS.status == params.status)
     if params.priority:
@@ -93,7 +97,6 @@ def apply_filters(query, params):
 
 
 def get_ordenation(query, sort_param: str):
-    # 1. Dicionário com as colunas permitidas para ordenação
     SORT_FIELDS = {
         "createdAt": OS.createdAt,
         "updatedAt": OS.updatedAt,
@@ -101,14 +104,11 @@ def get_ordenation(query, sort_param: str):
         "status": OS.status,
         "title": OS.title,
     }
-    # 2. Separa a string em campo e direção (ex: "createdAt:desc")
     if ":" in sort_param:
         field_name, direction = sort_param.split(":", 1)
     else:
         field_name, direction = "createdAt", "desc"
-    # 3. Obtém a coluna (se não existir no dicionário, usa OS.createdAt como fallback)
     sort_column = SORT_FIELDS.get(field_name, OS.createdAt)
-    # 4. Aplica asc() ou desc()
     if direction.lower() == "asc":
         query = query.order_by(asc(sort_column))
     else:
@@ -121,9 +121,9 @@ async def create_os(
     os: WorkOrderCreate, 
     decoded_token: Dict[str, Any] = Depends(get_current_user), 
     db: Session = Depends(get_db)
-    ) -> WorkOrderResponse:
+) -> WorkOrderResponse:
     role, user_id, user_team = get_user_data(decoded_token)
-    validate_creator(decoded_token)
+    validate_creator(role)
 
     validate_team(decoded_token, os.teamId)
 
@@ -132,13 +132,13 @@ async def create_os(
         assignee = db.execute(assignee_query).scalars().first()
         validate_assignee(assignee, role, user_team)
 
-    new_os = OS (
-        title = os.title,
-        description = os.description,
-        status = Status.OPEN,
-        priority = os.priority,
-        assigneeId = os.assigneeId,
-        teamId = os.teamId,
+    new_os = OS(
+        title=os.title,
+        description=os.description,
+        status=Status.OPEN,
+        priority=os.priority,
+        assigneeId=os.assigneeId,
+        teamId=os.teamId,
     )
 
     for item in os.initialChecklist:
@@ -159,15 +159,15 @@ async def list_os(
     params: WorkOrderListQuery = Depends(),
     decoded_token: Dict[str, Any] = Depends(get_current_user), 
     db: Session = Depends(get_db)
-    ) -> WorkOrderListResponse:
+) -> WorkOrderListResponse:
     role, user_id, user_team = get_user_data(decoded_token)
 
     total_query = select(func.count(OS.id))
     total_query = validate_scope(total_query, user_id, role, user_team)
     total_query = apply_filters(total_query, params)
-    total_items = db.execute(total_query).scalar()
+    total_items = db.execute(total_query).scalar() or 0
 
-    total_pages = math.ceil(total_items / params.perPage) if total_items > 0 else 1
+    total_pages = math.ceil(total_items / params.perPage) if total_items > 0 else 0
 
     query = select(OS).options(selectinload(OS.checkList))
     query = validate_scope(query, user_id, role, user_team)
@@ -213,6 +213,19 @@ async def details_os(
     return item
 
 
+@router.get("/{item_id}/history", status_code=status.HTTP_200_OK)
+async def get_os_history(
+    item_id: int,
+    db: Session = Depends(get_db),
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+) -> List[WorkOrderEventResponse]:
+    item = await details_os(item_id, db, decoded_token)
+    
+    query = select(Auditoria).where(Auditoria.workOrderId == item.id).order_by(asc(Auditoria.createdAt))
+    events = db.execute(query).scalars().all()
+    return events
+
+
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_os(
     item_id: int,
@@ -225,34 +238,94 @@ async def delete_os(
     return
 
 
-def otimist_concurrence():
-    pass
-
-
-def validate_assignee_patch(data, role, user_team, db):
+def validate_assignee_patch(data: WorkOrderUpdate, role: str, user_team: str, db: Session):
     if data.assigneeId is not None:
         assignee_query = select(Usuario).where(Usuario.id == data.assigneeId)
         assignee = db.execute(assignee_query).scalars().first()
         validate_assignee(assignee, role, user_team)
 
 
-def status_transition_validation():
-    pass
+def otimist_concurrence(item: OS, data: WorkOrderUpdate):
+    if data.version is None or item.version != data.version:
+        raise FlxException(
+            code="FLX_CONCURRENT_UPDATE",
+            message="Houveram outras atualizações a esse registro, e houve conflito. Tente novamente.",
+            status_code=409
+        )
 
 
-def fields_update(item, data):
+def status_transition_validation(item: OS, data: WorkOrderUpdate, role: str):
+    prev = item.status.value if isinstance(item.status, Enum) else item.status
+    next_status = data.status.value if isinstance(data.status, Enum) else data.status
+
+    if prev == next_status:
+        return
+
+    if prev == 'open' and next_status == 'in_progress':
+        effective_assignee = data.assigneeId if data.assigneeId is not None else item.assigneeId
+        if effective_assignee is None:
+            raise FlxException(
+                code="FLX_INVALID_STATUS_TRANSITION",
+                message="Uma ordem de serviço em andamento deve ter um técnico designado.",
+                status_code=422
+            )
+    elif prev == 'in_progress' and next_status == 'done':
+        priority_val = item.priority.value if isinstance(item.priority, Enum) else item.priority
+        if priority_val == Priority.HIGH.value and role in [UsuarioRole.TECHNICIAN, UsuarioRole.TECHNICIAN.value]:
+            raise FlxException(
+                code="FLX_FORBIDDEN",
+                message="Uma ordem de serviço de alta prioridade só pode ser concluída por um supervisor ou administrador.",
+                status_code=403
+            )
+        notes = data.resolutionNotes or item.resolutionNotes
+        if not notes or len(notes.strip()) < 10:
+            raise FlxException(
+                code="FLX_INVALID_STATUS_TRANSITION",
+                message="Uma ordem de serviço só pode ser concluída com a inclusão de notas sobre a resolução da mesma (mín. 10 caracteres).",
+                status_code=422
+            )
+    elif prev == 'in_progress' and next_status == 'open':
+        open_tasks = [i for i in item.checkList if not i.completed]
+        if len(open_tasks) == 0:
+            raise FlxException(
+                code="FLX_INVALID_STATUS_TRANSITION",
+                message="Uma ordem de serviço só pode ser reaberta caso alguma tarefa do checklist não tenha sido cumprida.",
+                status_code=422
+            )
+    else:
+        raise FlxException(
+            code="FLX_INVALID_STATUS_TRANSITION",
+            message="A mudança de status solicitada não é permitida.",
+            status_code=422
+        )
+
+
+def fields_update(item: OS, data: WorkOrderUpdate, role: str):
+    if data.priority is not None and role in [UsuarioRole.TECHNICIAN, UsuarioRole.TECHNICIAN.value]:
+        raise FlxException(
+            code="FLX_FORBIDDEN",
+            message="Uma ordem de serviço não pode ter sua prioridade alterada por um técnico.",
+            status_code=403
+        )
     update_data = data.model_dump(exclude_unset=True)
+    update_data.pop("version", None)
     for key, value in update_data.items():
         setattr(item, key, value)
-
+    item.version += 1
     return item
 
 
-def generate_audit():
-    pass
+def generate_audit(item: OS, from_status: str, to_status: str, user_id: int, db: Session):
+    audit = Auditoria(
+        workOrderId=item.id,
+        actorId=user_id,
+        fromStatus=from_status,
+        toStatus=to_status,
+    )
+    db.add(audit)
 
 
-def commit_item(item, db):
+def commit_item(item: OS, db: Session):
     db.commit()
     db.refresh(item)
 
@@ -263,22 +336,50 @@ async def patch_os(
     data: WorkOrderUpdate,
     db: Session = Depends(get_db),
     decoded_token: Dict[str, Any] = Depends(get_current_user),
-):
+) -> WorkOrderResponse:
     role, user_id, user_team = get_user_data(decoded_token)
 
     item = await details_os(item_id, db, decoded_token)
     validate_assignee_patch(data, role, user_team, db)
 
+    prev_status = item.status.value if isinstance(item.status, Enum) else item.status
+
     if data.status is not None:
-        otimist_concurrence()
-        status_transition_validation()
+        otimist_concurrence(item, data)
+        status_transition_validation(item, data, role)
 
-    prev_status = item.status
-    patched_item = fields_update(item, data)
+    patched_item = fields_update(item, data, role)
 
-    if data.status != prev_status:
-        generate_audit()
+    if data.status is not None and data.status.value != prev_status:
+        generate_audit(item, prev_status, data.status.value, user_id, db)
 
     commit_item(item, db)
     return patched_item
 
+
+@router.patch("/{item_id}/checklist/{checklist_id}", status_code=status.HTTP_200_OK)
+async def update_checklist_item(
+    item_id: int,
+    checklist_id: int,
+    data: ChecklistItemUpdate,
+    db: Session = Depends(get_db),
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+) -> ChecklistItemResponse:
+    item = await details_os(item_id, db, decoded_token)
+
+    checklist_item = next((c for c in item.checkList if c.id == checklist_id), None)
+    if not checklist_item:
+        raise FlxException(
+            code="FLX_NOT_FOUND",
+            message="Item de checklist não encontrado",
+            status_code=404
+        )
+
+    if data.label is not None:
+        checklist_item.label = data.label
+    if data.completed is not None:
+        checklist_item.completed = data.completed
+
+    db.commit()
+    db.refresh(checklist_item)
+    return checklist_item

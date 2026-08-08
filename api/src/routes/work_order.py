@@ -185,3 +185,27 @@ async def list_os(
     }
 
     return response
+
+
+@router.get("/{item_id}", status_code=status.HTTP_200_OK)
+async def details_os(
+    item_id: int,
+    db: Session = Depends(get_db),
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+) -> WorkOrderResponse:
+    role = decoded_token.get("role")
+    user_id = int(decoded_token.get("sub"))
+    user_team = decoded_token.get("teamId")
+
+    query = select(OS).where(OS.id == item_id).options(selectinload(OS.checkList))
+    query = validate_scope(query, user_id, role, user_team)
+
+    item = db.execute(query).scalars().first()
+    if item is None:
+        raise FlxException(
+            code="FLX_NOT_FOUND",
+            message="Ordem de serviço não encontrada",
+            status_code=404
+        )
+    
+    return item

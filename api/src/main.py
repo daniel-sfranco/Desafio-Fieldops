@@ -1,7 +1,13 @@
+import sys
+from pathlib import Path
+
+# Garante que o diretório 'src' esteja no PYTHONPATH para resolver as importações
+sys.path.insert(0, str(Path(__file__).parent.resolve()))
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
-from routes import auth
+from routes import auth, work_order
 from utils.database import engine, base
 from utils.exceptions import register_exception_handlers
 import models  # noqa: F401
@@ -20,6 +26,7 @@ app = FastAPI(
 )
 
 app.include_router(auth.router)
+app.include_router(work_order.router)
 
 register_exception_handlers(app)
 

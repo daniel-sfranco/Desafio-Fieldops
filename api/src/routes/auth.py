@@ -36,7 +36,7 @@ def validate_non_admin_team(user):
         raise FlxException(
             code="FLX_VALIDATION_ERROR",
             message="Esse usuário precisa cadastrar um time.",
-            status_code=400
+            status_code=422
         )
 
 

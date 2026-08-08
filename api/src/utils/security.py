@@ -1,15 +1,19 @@
 import os
+from fastapi import Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Any, Dict
 import bcrypt
 import jwt
+
+from utils.exceptions import FlxException
 
 SECRET_KEY = os.getenv(
     "JWT_SECRET", "supersecretkeyfieldops2026secretkey32bytes"
 )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 horas (1 dia)
-
+security = HTTPBearer()
 
 def get_password_hash(password: str) -> str:
     """
@@ -57,3 +61,15 @@ def decode_access_token(token: str) -> Dict[str, Any]:
     """
     payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     return payload
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
+    token = credentials.credentials
+    try:
+        payload = decode_access_token(token)
+        return payload
+    except Exception:
+        raise FlxException(
+            code="FLX_UNAUTHORIZED",
+            message="Token inválido ou expirado",
+            status_code=401
+        )

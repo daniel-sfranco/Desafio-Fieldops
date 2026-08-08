@@ -23,6 +23,13 @@ router = APIRouter (
 )
 
 
+def get_user_data(decoded_token: Dict[str, Any]):
+    role = decoded_token.get("role")
+    user_id = int(decoded_token.get("sub"))
+    user_team = decoded_token.get("teamId")
+    return role, user_id, user_team
+
+
 def validate_creator(decoded_token: Dict[str, Any]):
     role = decoded_token.get("role")
     allowed = [UsuarioRole.SUPERVISOR, UsuarioRole.ADMIN, UsuarioRole.SUPERVISOR.value, UsuarioRole.ADMIN.value]
@@ -154,9 +161,7 @@ async def list_os(
     decoded_token: Dict[str, Any] = Depends(get_current_user), 
     db: Session = Depends(get_db)
     ) -> WorkOrderListResponse:
-    role = decoded_token.get("role")
-    user_id = int(decoded_token.get("sub"))
-    user_team = decoded_token.get("teamId")
+    role, user_id, user_team = get_user_data(decoded_token)
 
     total_query = select(func.count(OS.id))
     total_query = validate_scope(total_query, user_id, role, user_team)
@@ -193,9 +198,7 @@ async def details_os(
     db: Session = Depends(get_db),
     decoded_token: Dict[str, Any] = Depends(get_current_user),
 ) -> WorkOrderResponse:
-    role = decoded_token.get("role")
-    user_id = int(decoded_token.get("sub"))
-    user_team = decoded_token.get("teamId")
+    role, user_id, user_team = get_user_data(decoded_token)
 
     query = select(OS).where(OS.id == item_id).options(selectinload(OS.checkList))
     query = validate_scope(query, user_id, role, user_team)
@@ -222,3 +225,44 @@ async def delete_os(
     db.delete(item)
     db.commit()
     return
+
+
+def otimist_concurrence():
+    pass
+
+def status_transition_validation():
+    pass
+
+
+def fields_update(item, data):
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(item, key, value)
+
+    return item
+
+
+def generate_audit():
+    pass
+
+
+def commit_item(item, db):
+    db.commit()
+    db.refresh(item)
+
+
+@router.patch("/{item_id}", status_code=status.HTTP_200_OK)
+async def delete_os(
+    item_id: int,
+    data: WorkOrderUpdate,
+    db: Session = Depends(get_db),
+    decoded_token: Dict[str, Any] = Depends(get_current_user),
+):
+    role, user_id, user_team = get_user_data(decoded_token)
+
+    item = await details_os(item_id, db, decoded_token)
+    if data.status is None:
+        patched_item = fields_update(item, data)
+        commit_item(item, db)
+
+    return patched_item

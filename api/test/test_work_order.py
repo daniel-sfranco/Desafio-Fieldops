@@ -391,3 +391,135 @@ def test_delete_work_order_out_of_scope_fails(client):
     del_res = client.delete(f"/work-orders/{os_id}", headers={"Authorization": f"Bearer {tech1_token}"})
     assert del_res.status_code == 404
     assert del_res.json()["error"]["code"] == "FLX_NOT_FOUND"
+
+
+# ==========================================
+# TESTES DE TRANSIÇÃO DE STATUS E CONCORRÊNCIA
+# ==========================================
+
+def test_status_transition_full_flow_and_audit(client):
+    """Testa transição open -> in_progress -> done e geração de histórico de auditoria."""
+    sup_token, _ = create_user(client, "sup_flow@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech_token, _ = create_user(client, "tech_flow@fieldops.eval", "Técnico", "technician", "team-alpha")
+    tech_id = get_user_id_from_token(tech_token)
+
+    headers_sup = {"Authorization": f"Bearer {sup_token}"}
+    headers_tech = {"Authorization": f"Bearer {tech_token}"}
+
+    # 1. Cria OS
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Flow Test", "priority": "low", "teamId": "team-alpha", "assigneeId": tech_id, "initialChecklist": [{"label": "Task 1"}]
+    }, headers=headers_sup)
+    os_id = create_res.json()["id"]
+
+    # 2. open -> in_progress (by Tech)
+    patch1 = client.patch(f"/work-orders/{os_id}", json={
+        "status": "in_progress",
+        "version": 1
+    }, headers=headers_tech)
+    assert patch1.status_code == 200
+    assert patch1.json()["status"] == "in_progress"
+    assert patch1.json()["version"] == 2
+
+    # 3. in_progress -> done (by Tech, priority low)
+    patch2 = client.patch(f"/work-orders/{os_id}", json={
+        "status": "done",
+        "resolutionNotes": "Problema resolvido com sucesso após troca de peças.",
+        "version": 2
+    }, headers=headers_tech)
+    assert patch2.status_code == 200
+    assert patch2.json()["status"] == "done"
+    assert patch2.json()["version"] == 3
+
+    # 4. Verifica histórico de auditoria
+    history_res = client.get(f"/work-orders/{os_id}/history", headers=headers_tech)
+    assert history_res.status_code == 200
+    events = history_res.json()
+    assert len(events) == 2
+    assert events[0]["fromStatus"] == "open"
+    assert events[0]["toStatus"] == "in_progress"
+    assert events[1]["fromStatus"] == "in_progress"
+    assert events[1]["toStatus"] == "done"
+
+
+def test_optimistic_concurrency_conflict_409(client):
+    """Testa se versão incorreta retorna HTTP 409 com FLX_CONCURRENT_UPDATE."""
+    sup_token, _ = create_user(client, "sup_conc@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech_token, _ = create_user(client, "tech_conc@fieldops.eval", "Técnico", "technician", "team-alpha")
+    tech_id = get_user_id_from_token(tech_token)
+
+    headers_sup = {"Authorization": f"Bearer {sup_token}"}
+
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Concorrência", "priority": "low", "teamId": "team-alpha", "assigneeId": tech_id, "initialChecklist": [{"label": "C"}]
+    }, headers=headers_sup)
+    os_id = create_res.json()["id"]
+
+    # Tenta transição com versão errada (99 em vez de 1)
+    res = client.patch(f"/work-orders/{os_id}", json={
+        "status": "in_progress",
+        "version": 99
+    }, headers=headers_sup)
+
+    assert res.status_code == 409
+    assert res.json()["error"]["code"] == "FLX_CONCURRENT_UPDATE"
+
+
+def test_high_priority_done_blocked_for_technician(client):
+    """Testa se técnico tentando concluir OS de alta prioridade recebe HTTP 403."""
+    sup_token, _ = create_user(client, "sup_high@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    tech_token, _ = create_user(client, "tech_high@fieldops.eval", "Técnico", "technician", "team-alpha")
+    tech_id = get_user_id_from_token(tech_token)
+
+    headers_sup = {"Authorization": f"Bearer {sup_token}"}
+    headers_tech = {"Authorization": f"Bearer {tech_token}"}
+
+    # Cria OS com prioridade high
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Alta Prioridade Crítica", "priority": "high", "teamId": "team-alpha", "assigneeId": tech_id, "initialChecklist": [{"label": "C"}]
+    }, headers=headers_sup)
+    os_id = create_res.json()["id"]
+
+    # Mudar para in_progress
+    client.patch(f"/work-orders/{os_id}", json={"status": "in_progress", "version": 1}, headers=headers_tech)
+
+    # Técnico tenta concluir -> Bloqueado com 403
+    res_tech = client.patch(f"/work-orders/{os_id}", json={
+        "status": "done",
+        "resolutionNotes": "Tentativa de conclusão pelo técnico",
+        "version": 2
+    }, headers=headers_tech)
+
+    assert res_tech.status_code == 403
+    assert res_tech.json()["error"]["code"] == "FLX_FORBIDDEN"
+
+    # Supervisor tenta concluir -> Deve funcionar (200)
+    res_sup = client.patch(f"/work-orders/{os_id}", json={
+        "status": "done",
+        "resolutionNotes": "Concluído com sucesso pelo supervisor responsável.",
+        "version": 2
+    }, headers=headers_sup)
+
+    assert res_sup.status_code == 200
+    assert res_sup.json()["status"] == "done"
+
+
+def test_invalid_status_transition_direct_open_to_done(client):
+    """Testa se transição inválida (open -> done direto) retorna HTTP 422 com FLX_INVALID_STATUS_TRANSITION."""
+    sup_token, _ = create_user(client, "sup_invalid@fieldops.eval", "Supervisor", "supervisor", "team-alpha")
+    headers = {"Authorization": f"Bearer {sup_token}"}
+
+    create_res = client.post("/work-orders/", json={
+        "title": "OS Transição Direta Inválida", "priority": "low", "teamId": "team-alpha", "initialChecklist": [{"label": "C"}]
+    }, headers=headers)
+    os_id = create_res.json()["id"]
+
+    res = client.patch(f"/work-orders/{os_id}", json={
+        "status": "done",
+        "resolutionNotes": "Notas suficientes mas transição inválida",
+        "version": 1
+    }, headers=headers)
+
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "FLX_INVALID_STATUS_TRANSITION"
+

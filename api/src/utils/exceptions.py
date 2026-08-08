@@ -3,6 +3,7 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.encoders import jsonable_encoder
 
 
 class FlxException(Exception):
@@ -47,7 +48,7 @@ def register_exception_handlers(app: FastAPI) -> None:
                     "code": "FLX_VALIDATION_ERROR",
                     "message": "Erro de validação nos dados fornecidos.",
                     "flxTraceId": str(uuid.uuid4()),
-                    "details": {"errors": exc.errors()},
+                    "details": {"errors": jsonable_encoder(exc.errors())},
                 }
             },
         )

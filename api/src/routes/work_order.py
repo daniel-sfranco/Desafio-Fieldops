@@ -1,5 +1,5 @@
 from enum import Enum
-import math
+import math, os
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, Depends, status
@@ -20,6 +20,7 @@ from schemas.checklist import ChecklistItemUpdate, ChecklistItemResponse
 from utils.database import get_db
 from utils.exceptions import FlxException
 from utils.security import get_current_user
+from utils.webhook import notify
 
 router = APIRouter(
     prefix="/work-orders",
@@ -323,6 +324,7 @@ def generate_audit(item: OS, from_status: str, to_status: str, user_id: int, db:
         toStatus=to_status,
     )
     db.add(audit)
+    return audit
 
 
 def commit_item(item: OS, db: Session):
@@ -350,10 +352,16 @@ async def patch_os(
 
     patched_item = fields_update(item, data, role)
 
-    if data.status is not None and data.status.value != prev_status:
-        generate_audit(item, prev_status, data.status.value, user_id, db)
-
-    commit_item(item, db)
+    if data.status is not None:
+        new_status = data.status.value if isinstance(data.status, Enum) else data.status
+        if new_status != prev_status:
+            audit = generate_audit(item, prev_status, new_status, user_id, db)
+            commit_item(item, db)
+            await notify(audit)
+        else:
+            commit_item(item, db)
+    else:
+        commit_item(item, db)
     return patched_item
 
 

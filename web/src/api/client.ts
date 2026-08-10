@@ -9,7 +9,7 @@ interface RequestOptions extends RequestInit {
 export async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { data, headers, ...customConfig} = options;
 
-    const token = localStorage.getItem('fieldops-token');
+    const token = localStorage.getItem('fieldops_token');
 
     const defaultHeaders: HeadersInit = {
         'Content-Type': 'application/json'

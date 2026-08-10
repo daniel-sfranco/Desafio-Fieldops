@@ -7,7 +7,6 @@ interface PriorityBadgeProps {
 
 const priorityLabels: Record<WorkOrderPriority, string> = {
     low: 'Baixa',
-    medium: 'Média',
     high: 'Alta',
 }
 

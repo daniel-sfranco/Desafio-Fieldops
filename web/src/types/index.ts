@@ -1,6 +1,6 @@
 export type UserRole = 'technician' | 'supervisor' | 'admin';
 export type WorkOrderStatus = 'open' | 'in_progress' | 'done';
-export type WorkOrderPriority = 'low' | 'medium' | 'high';
+export type WorkOrderPriority = 'low' | 'high';
 
 export interface User {
     id: number;

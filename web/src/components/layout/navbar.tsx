@@ -25,9 +25,7 @@ export const Navbar: React.FC = () => {
                         <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{user.name}</div>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                                 <span className={`badge badge-role-${user.role}`}>
-                                    {
-                                        // roleNames[user.role]
-                                    }
+                                    {roleNames[user.role]}
                                 </span>
                                 {user.teamId && (
                                     <span className="badge badge-low" style={{ fontSize: '0.7rem' }}>

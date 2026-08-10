@@ -1,12 +1,17 @@
 import './App.css'
-import { StatusBadge } from './components/common/StatusBadge'
-import { PriorityBadge } from './components/common/PriorityBadge'
+import { ErrorAlert } from './components/common/ErrorAlert'
+import { ApiError } from './types'
 
 function App() {
+  const error: ApiError = {
+    code: "Erro de exemplo",
+    message: "Esse erro está sendo apresentado na tela",
+    flxTraceId: "id de exemplo",
+    statusCode: 123
+  }
   return (
     <>
-      <StatusBadge status="open"></StatusBadge>
-      <PriorityBadge priority="high"></PriorityBadge>
+      <ErrorAlert error={error}></ErrorAlert>
     </>
   )
 }

@@ -11,7 +11,7 @@ const priorityLabels: Record<WorkOrderPriority, string> = {
     high: 'Alta',
 }
 
-export const priorityBadge: React.FC<PriorityBadgeProps> = ({ priority }) => {
+export const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority }) => {
     return (
         <span className={`badge badge-${priority}`}>
             { priorityLabels[priority] || priority}

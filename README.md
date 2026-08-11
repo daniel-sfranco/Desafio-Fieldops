@@ -71,9 +71,9 @@ pytest
 - **Consequências**: Evita sobreescrita cega de dados sem a necessidade de locks pessimistas que travariam o banco.
 
 #### 2. Isolamento de Escopo e Controle de Acesso (RBAC)
-- **Contexto**: Garantir que técnicos não acessem dados de outras equipes ou de outros técnicos.
-- **Decisão**: As regras de escopo foram aplicadas diretamente na camada de consulta ao banco de dados da API e no ORM, impedindo que parâmetros na query string burlem o isolamento. Tentativas de acesso a registros fora do escopo retornam `403 Forbidden` (`FLX_FORBIDDEN`).
-- **Consequências**: Segurança por design garantida na API, independente das validações visuais no frontend.
+- **Contexto**: Garantir que técnicos não acessem dados de outras equipes ou de outros técnicos, e que ações administrativas sejam restritas.
+- **Decisão**: As regras de escopo foram aplicadas diretamente na camada de consulta ao banco de dados (queries com cláusulas `where` automáticas por `teamId`/`assigneeId`). Tentativas de consultar ordens de serviço fora do escopo (`GET /work-orders/:id`) retornam `404 Not Found` (`FLX_NOT_FOUND`) para evitar vazamento de informações (prevenção de enumeração de IDs). Mutações e ações proibidas para o perfil (como técnicos alterando prioridade, reatribuindo OS ou concluindo OS de alta prioridade) retornam `403 Forbidden` (`FLX_FORBIDDEN`).
+- **Consequências**: Segurança por design garantida na API, prevenindo adulteração via query params e independente das validações do frontend.
 
 #### 3. Webhook Assinado com HMAC-SHA256 e Revisão de APi
 - **Contexto**: Notificar sistemas externos após cada transição de status de forma íntegra e segura.

@@ -182,6 +182,26 @@ export const StatusChangeModal: React.FC<StatusChangeModalProps> = ({
             </p>
           )}
 
+          {/* Exibição de Notas de Resolução já registradas (quando a OS já foi concluída antes) */}
+          {currentWO.resolutionNotes && (
+            <div
+              style={{
+                padding: '0.875rem 1rem',
+                backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                borderLeft: '4px solid #34d399',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: '1.25rem',
+              }}
+            >
+              <strong style={{ fontSize: '0.8125rem', color: '#34d399', display: 'block', marginBottom: '0.25rem' }}>
+                Notas de Resolução Registradas:
+              </strong>
+              <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--text-main)' }}>
+                {currentWO.resolutionNotes}
+              </p>
+            </div>
+          )}
+
           {/* Checklist Interativo */}
           <div style={{ marginBottom: '1.5rem', padding: '1rem', backgroundColor: 'var(--bg-subtle)', borderRadius: 'var(--radius-md)' }}>
             <h4 style={{ fontSize: '0.875rem', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

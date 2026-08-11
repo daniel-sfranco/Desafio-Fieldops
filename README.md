@@ -8,6 +8,58 @@
 - **Banco de Dados:** PostgreSQL
 - **DevOps:** Docker, Docker Compose, Github Actions (CI)
 
+## Como Executar o Projeto
+
+### Pré-requisitos
+- Docker e Docker Compose instalados ou Node.js (v18+), Python (v3.11+)  e PostgreSQL instalados localmente
+
+### Opção 1: Executando via Docker Compose (Recomendado)
+1. Clone o repositório e configure as variáveis de ambiente:
+```bash
+cp .env.example .env
+```
+
+2. Suba todos os containers (Banco, API e Frontend):
+```bash
+docker compose up --build -d
+```
+
+3. Popule o banco de dados com alguns registros para teste (opcional)
+```bash
+docker compose exec api python seed.py
+```
+
+### Opção 2: Executando localmente (Sem Docker para App)
+1. Banco de Dados
+```bash
+# Subir apenas o PostgreSQL via Docker:
+docker compose up -d db
+```
+
+2. Backend (FastAPI)
+```bash
+cd api
+python -m venv .venv
+source .venv/bin/activate  # No Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python seed.py             # Popular banco com usuários e dados de teste
+uvicorn src.main:app --reload --port 8000
+```
+
+3. Frontend (React)
+```bash
+cd web
+npm install
+npm run dev
+```
+
+4. Executando os Testes Automatizados do Backend
+```bash
+cd api
+source .venv/bin/activate
+pytest
+```
+
 ## Diagrama do fluxo principal
 ![Fluxo da aplicação Fieldops](FluxoAplicação.png)
 

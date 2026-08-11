@@ -93,3 +93,6 @@ pytest
 ## Limitações conhecidas
 - O reenvio automático de webhooks em caso de falha de rede do receptor externo (retry queue com backoff) pode ser expandido com um broker de mensagens (ex: Redis/Celery)
 - A criação e exclusão de itens individuais de checklist em uma OS existente após a sua criação inicial é gerenciada pela edição do status de conclusão
+
+## Bônus implementados
+- Tipagem forte com Openapi-fetch no frontend: uma mudança no modelo no backend seguida da atualização dos arquivos `api/openapi.json` atualiza os schemas de forma automática no frontend no início da execução do projeto, permitindo que as mudanças do back sejam refletidas de forma rápida e simples no frontend.

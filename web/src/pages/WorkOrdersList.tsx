@@ -183,8 +183,8 @@ export const WorkOrdersList: React.FC<WorkOrdersListProps> = ({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {workOrders.map((wo) => {
-            const completedTasks = wo.checklist?.filter((c) => c.completed).length || 0;
-            const totalTasks = wo.checklist?.length || 0;
+            const completedTasks = wo.checkList?.filter((c) => c.completed).length || 0;
+            const totalTasks = wo.checkList?.length || 0;
             return (
               <div key={wo.id} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -233,7 +233,7 @@ export const WorkOrdersList: React.FC<WorkOrdersListProps> = ({
                       className="btn btn-primary btn-sm" 
                       onClick={() => onOpenStatus?.(wo)}
                     >
-                      Alterar Status
+                      Detalhes / Alterar
                     </button>
                   </div>
                 </div>

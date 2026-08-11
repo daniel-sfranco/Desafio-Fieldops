@@ -5,10 +5,13 @@ import { useAuth } from './contexts/AuthContext';
 import { Login } from './pages/Login';
 import { WorkOrdersList } from './pages/WorkOrdersList';
 import { CreateWorkOrderModal } from './components/workOrders/CreateWorkOrderModal';
+import { StatusChangeModal } from './components/workOrders/StatusChangeModal';
+import { WorkOrder } from './types';
 
 function App() {
   const { user } = useAuth();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedWO, setSelectedWO] = useState<WorkOrder | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   if (!user) {
@@ -22,7 +25,7 @@ function App() {
         <WorkOrdersList 
           key={refreshKey}
           onOpenCreate={() => setIsCreateOpen(true)}
-          onOpenStatus={(wo) => alert(`Alterar status da OS #${wo.id} (${wo.title})`)}
+          onOpenStatus={(wo) => setSelectedWO(wo)}
           onOpenHistory={(id) => alert(`Ver histórico da OS #${id}`)}
         />
       </main>
@@ -31,6 +34,16 @@ function App() {
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         onSuccess={() => setRefreshKey((k) => k + 1)}
+      />
+
+      <StatusChangeModal
+        workOrder={selectedWO}
+        isOpen={!!selectedWO}
+        onClose={() => setSelectedWO(null)}
+        onSuccess={() => {
+          setSelectedWO(null);
+          setRefreshKey((k) => k + 1);
+        }}
       />
     </div>
   )

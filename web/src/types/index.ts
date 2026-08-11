@@ -29,7 +29,7 @@ export interface WorkOrder {
     version: number;
     createdAt: string;
     updatedAt: string;
-    checklist?: ChecklistItem[];
+    checkList?: ChecklistItem[];
 }
 
 export interface WorkOrderEvent {

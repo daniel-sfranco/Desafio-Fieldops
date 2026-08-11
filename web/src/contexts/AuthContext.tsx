@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { apiClient } from '../api/client';
+import { api } from '../api/client';
 
 
 function parseJwt(token: string) {
@@ -45,10 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (email: string, password: string) => {
-        const data = await apiClient<{ access_token: string }>('/auth/login', {
-            method: 'POST',
-            data: { email, password },
-        });
+        const { data, error } = await api.POST('/auth/login', {
+            body: { email, password }
+        })
+
+        if (error) throw error;
+
         const accessToken = data.access_token;
         const payload = parseJwt(accessToken);
 

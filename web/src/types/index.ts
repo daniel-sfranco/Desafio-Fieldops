@@ -1,6 +1,15 @@
-export type UserRole = 'technician' | 'supervisor' | 'admin';
-export type WorkOrderStatus = 'open' | 'in_progress' | 'done';
-export type WorkOrderPriority = 'low' | 'high';
+import type { components } from './schema';
+
+export type UserRole = components['schemas']['UsuarioRole'];
+export type WorkOrderStatus = components['schemas']['Status'];
+export type WorkOrderPriority = components['schemas']['Priority'];
+
+export type ChecklistItem = components['schemas']['ChecklistItemResponse'];
+export type WorkOrder = components['schemas']['WorkOrderResponse'];
+export type WorkOrderEvent = components['schemas']['WorkOrderEventResponse'];
+
+export type WorkOrderCreate = components['schemas']['WorkOrderCreate'];
+export type WorkOrderUpdate = components['schemas']['WorkOrderUpdate'];
 
 export interface User {
     id: number;
@@ -10,36 +19,6 @@ export interface User {
     teamId?: string | null;
 }
 
-export interface ChecklistItem {
-    id: number;
-    workOrderId: number;
-    label: string;
-    completed: boolean;
-}
-
-export interface WorkOrder {
-    id: number;
-    title: string;
-    description?: string | null;
-    status: WorkOrderStatus;
-    priority: WorkOrderPriority;
-    resolutionNotes?: string | null;
-    assigneeId?: number | null;
-    teamId: string;
-    version: number;
-    createdAt: string;
-    updatedAt: string;
-    checkList?: ChecklistItem[];
-}
-
-export interface WorkOrderEvent {
-    id: number;
-    workOrderId: number;
-    actorId: number;
-    fromStatus?: WorkOrderStatus | null;
-    toStatus: WorkOrderStatus;
-    createdAt: string;
-}
 
 export interface ApiError {
     code: string;

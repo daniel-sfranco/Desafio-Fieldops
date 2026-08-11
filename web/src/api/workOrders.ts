@@ -1,4 +1,4 @@
-import { apiClient } from "./client";
+import { api } from "./client";
 import { 
     WorkOrder,
     WorkOrderEvent,
@@ -45,61 +45,91 @@ export interface UpdateWorkOrderData {
 }
 
 export async function getWorkOrders(filters: WorkOrderFilters = {}): Promise<PaginatedWorkOrders> {
-    const queryParams = new URLSearchParams();
+    const { data, error } = await api.GET('/work-orders/', {
+        params: {
+            query: {
+                page: filters.page,
+                perPage: filters.perPage,
+                status: filters.status,
+                priority: filters.priority,
+                sort: filters.sort,
+            }
+        }
+    })
 
-    if (filters.page) queryParams.append('page', String(filters.page));
-    if (filters.perPage) queryParams.append('perPage', String(filters.perPage));
-    if (filters.status) queryParams.append('status', String(filters.status));
-    if (filters.priority) queryParams.append('priority', String(filters.priority));
-    if (filters.sort) queryParams.append('sort', String(filters.sort));
-
-    const queryString = queryParams.toString();
-    const endpoint = `/work-orders${queryString ?  `?${queryString}` : ''}`
-
-    return apiClient<PaginatedWorkOrders>(endpoint, {
-        method: 'GET',
-    });
+    if (error) throw error;
+    return data;
 }
 
 export async function getWorkOrderById(id: number): Promise<WorkOrder> {
-    return apiClient<WorkOrder>(`/work-orders/${id}`, {
-        method: 'GET'
+    const { data, error } = await api.GET(`/work-orders/{item_id}`, {
+        params:{
+            path: { item_id: id }
+        }
     });
+
+    if (error) throw error;
+    return data;
 }
 
-export async function createWorkOrder(data: CreateWorkOrderData): Promise<WorkOrder> {
-    return apiClient<WorkOrder>(`/work-orders`, {
-        method: 'POST',
-        data,
+export async function createWorkOrder(create_data: CreateWorkOrderData): Promise<WorkOrder> {
+    const { data, error } = await api.POST(`/work-orders/`, {
+        body: create_data
     });
+
+    if (error) throw error;
+    return data;
 }
 
-export async function updateWorkOrder(id: number, data: UpdateWorkOrderData): Promise<WorkOrder> {
-    return apiClient<WorkOrder>(`/work-orders/${id}`, {
-        method: 'PATCH',
-        data,
+export async function updateWorkOrder(id: number, update_data: UpdateWorkOrderData): Promise<WorkOrder> {
+    const { data, error } = await api.PATCH(`/work-orders/{item_id}`, {
+        params: {
+            path: { item_id: id }
+        },
+        body: update_data
     });
+
+    if (error) throw error;
+    return data;
 }
 
 export async function deleteWorkOrder(id: number): Promise<void> {
-    return apiClient<void>(`/work-orders/${id}`, {
-        method: 'DELETE'
+    const { data, error } = await api.DELETE(`/work-orders/{item_id}`, {
+        params: {
+            path: { item_id: id }
+        },
     });
+
+    if (error) throw error;
+    return data;
 }
 
 export async function getWorkOrderHistory(id: number): Promise<WorkOrderEvent[]> {
-    return apiClient<WorkOrderEvent[]>(`/work-orders/${id}/history`, {
-        method: 'GET'
+    const { data, error } = await api.GET(`/work-orders/{item_id}/history`, {
+        params: {
+            path: { item_id: id }
+        },
     });
+
+    if (error) throw error;
+    return data;
 }
 
 export async function updateChecklistItem (
     workOrderId: number,
     checklistId: number,
-    data: {label?: string; completed?: boolean }
+    update_data: {label?: string; completed?: boolean }
 ): Promise<ChecklistItem> {
-    return apiClient<ChecklistItem>(`/work-orders/${workOrderId}/checklist/${checklistId}`, {
-        method: 'PATCH',
-        data,
+    const { data, error } = await api.PATCH(`/work-orders/{item_id}/checklist/{checklist_id}`, {
+        params: {
+            path: { 
+                item_id: workOrderId,
+                checklist_id: checklistId
+             }
+        },
+        body: update_data
     });
+
+    if (error) throw error;
+    return data;
 }

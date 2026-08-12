@@ -96,3 +96,4 @@ pytest
 
 ## Bônus implementados
 - Tipagem forte com Openapi-fetch no frontend: uma mudança no modelo no backend seguida da atualização dos arquivos `api/openapi.json` atualiza os schemas de forma automática no frontend no início da execução do projeto, permitindo que as mudanças do back sejam refletidas de forma rápida e simples no frontend.
+- Teste end-to-end implementado para login, criação de ordem de serviço e alteração de status até o estado concluído. Para executar o mesmo, basta rodar `npm run test:e2e -- --project=chromium` (basta acrescentar `--headed` no fim do comando para ver a execução em tempo real do teste). O teste fará login na plataforma, criará uma ordem de serviço, inserirá nela um técnico e alterará para "em andamento" e por fim adicionará notas de resolução e a marcará como "concluída".
